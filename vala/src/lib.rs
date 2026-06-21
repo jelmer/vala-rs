@@ -20,7 +20,9 @@
 //! ```
 #![warn(missing_docs)]
 
+pub mod collections;
 pub mod object;
+pub mod visitor;
 
 pub use object::{Cast, Implements, IsA, RawWrapper};
 
@@ -28,15 +30,19 @@ pub use object::{Cast, Implements, IsA, RawWrapper};
 // and the `IsA`/`Implements`/`AsRef`/`Deref` graph.
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
+mod containers;
 mod context;
+mod node;
 mod parser;
 mod report;
 mod source;
 mod symbol;
 
-pub use context::SourceFileType;
-
+pub use collections::{List, ListIter};
+pub use context::{Profile, SourceFileType};
 pub use report::ReportLevel;
+pub use source::SourceLocation;
+pub use visitor::{walk, walk_source_file, Visitor, Walker};
 
 /// The libvala API version this crate was built against (e.g. `"0.56"`).
 ///

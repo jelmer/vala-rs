@@ -132,7 +132,6 @@ pub(crate) unsafe fn opt_string(ptr: *const std::os::raw::c_char) -> Option<Stri
 ///
 /// # Safety
 /// `ptr` must be null or an owned NUL-terminated string allocated by GLib.
-#[allow(dead_code)]
 pub(crate) unsafe fn take_string(ptr: *mut std::os::raw::c_char) -> Option<String> {
     if ptr.is_null() {
         return None;

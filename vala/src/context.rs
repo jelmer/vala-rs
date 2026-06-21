@@ -31,6 +31,25 @@ impl SourceFileType {
     }
 }
 
+/// The target runtime profile, which determines the implicit standard packages
+/// (and hence which base types like `int`/`string` resolve).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Profile {
+    /// The default GObject profile (`glib-2.0`, `gobject-2.0`).
+    GObject,
+    /// The minimal POSIX/libc profile.
+    Posix,
+}
+
+impl Profile {
+    fn to_ffi(self) -> ffi::ValaProfile {
+        match self {
+            Profile::GObject => ffi::VALA_PROFILE_GOBJECT,
+            Profile::Posix => ffi::VALA_PROFILE_POSIX,
+        }
+    }
+}
+
 impl CodeContext {
     /// Create a fresh, empty compilation context.
     pub fn new() -> Self {
@@ -94,6 +113,19 @@ impl CodeContext {
         }
     }
 
+    /// Set the target profile and optionally include its standard packages.
+    /// This must be called (typically before adding sources) for semantic
+    /// analysis to resolve built-in types such as `int` and `string`.
+    pub fn set_target_profile(&self, profile: Profile, include_stdpkg: bool) {
+        unsafe {
+            ffi::vala_code_context_set_target_profile(
+                self.as_raw(),
+                profile.to_ffi(),
+                include_stdpkg as ffi::gboolean,
+            )
+        }
+    }
+
     /// Add a preprocessor define.
     pub fn add_define(&self, define: &str) {
         let c = CString::new(define).expect("define contains NUL");
@@ -112,6 +144,17 @@ impl CodeContext {
         unsafe {
             Report::from_raw_none(ffi::vala_code_context_get_report(self.as_raw()))
                 .expect("context report was null")
+        }
+    }
+
+    /// The source files registered with this context (including any package
+    /// vapis pulled in as dependencies).
+    pub fn source_files(&self) -> crate::List<SourceFile> {
+        unsafe {
+            crate::collections::List::from_raw_none(ffi::vala_code_context_get_source_files(
+                self.as_raw(),
+            ))
+            .expect("source files list was null")
         }
     }
 

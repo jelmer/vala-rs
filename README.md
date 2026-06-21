@@ -17,6 +17,18 @@ libvala's compiler classes are GLib *fundamental* reference-counted types, not
 dropping releases it. Up- and downcasting follow the libvala inheritance graph
 via the `Cast` trait, with downcasts checked at runtime against the GType.
 
+For tree walking the safe layer provides:
+
+- a `Visitor` trait backed by a Rust-registered `CodeVisitor` subtype, so you
+  override only the node kinds you care about and traversal recurses otherwise;
+- `List<T>` views returned by container getters (`Namespace::classes`,
+  `ObjectTypeSymbol::methods`, ...);
+- source positions (`CodeNode::source_reference`, `SourceReference::begin/end`),
+  fully-qualified names (`Symbol::full_name`), and use-to-definition links
+  (`Expression::symbol_reference`), which together are enough to drive a
+  SCIP-style indexer. Reference resolution requires running `CodeContext::check`
+  after setting a target profile.
+
 ## Requirements
 
 - `libvala-<series>-dev`, e.g. `libvala-0.56-dev` (provides the headers,
