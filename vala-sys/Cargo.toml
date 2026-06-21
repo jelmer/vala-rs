@@ -8,6 +8,9 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+keywords = ["vala", "ffi", "bindings", "compiler", "gnome"]
+categories = ["external-ffi-bindings", "development-tools"]
 links = "vala-0.56"
 build = "build.rs"
 

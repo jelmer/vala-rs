@@ -8,6 +8,9 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+keywords = ["vala", "compiler", "bindings", "gnome", "ast"]
+categories = ["api-bindings", "development-tools"]
 build = "build.rs"
 
 [dependencies]
