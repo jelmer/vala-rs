@@ -39,7 +39,9 @@ pub use context::SourceFileType;
 pub use report::ReportLevel;
 
 /// The libvala API version this crate was built against (e.g. `"0.56"`).
-pub const API_VERSION: &str = "0.56";
+///
+/// Captured at build time from the libvala that vala-sys probed.
+pub const API_VERSION: &str = env!("VALA_API_VERSION");
 
 // Codegen must produce the broad hierarchy; a low count means the vapi parser
 // silently dropped declarations.
@@ -58,8 +60,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_version_is_0_56_series() {
+    fn build_version_matches_api_version() {
         let v = build_version();
-        assert!(v.starts_with("0.56."), "unexpected version: {v}");
+        let prefix = format!("{API_VERSION}.");
+        assert!(
+            v.starts_with(&prefix),
+            "build version {v} not in the {API_VERSION} series"
+        );
     }
 }

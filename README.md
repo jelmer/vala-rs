@@ -6,7 +6,7 @@ compiler library (the `libvala-dev` package on Debian/Ubuntu).
 Two crates:
 
 - **`vala-sys`** -- raw FFI bindings, generated at build time with `bindgen`
-  against the `libvala-0.56` headers located via `pkg-config`.
+  against the installed `libvala` headers, located via `pkg-config`.
 - **`vala`** -- a safe layer. The class hierarchy (~150 compiler types) is
   generated at build time from the installed `.vapi`; high-value entry points
   (`CodeContext`, `SourceFile`, `Parser`, `Report`, `Symbol`) have hand-written
@@ -19,7 +19,8 @@ via the `Cast` trait, with downcasts checked at runtime against the GType.
 
 ## Requirements
 
-- `libvala-0.56-dev` (provides the headers, pkg-config file and vapi)
+- `libvala-<series>-dev`, e.g. `libvala-0.56-dev` (provides the headers,
+  pkg-config file and vapi)
 - `libclang` (for `bindgen` at build time)
 - `pkg-config`
 
@@ -49,8 +50,11 @@ See `vala/examples/parse.rs` for a runnable version.
 
 ## Versioning
 
-The crates target the `libvala-0.56` series. The exact runtime library version
-is available via `vala::build_version()`.
+libvala bakes its API series into the pkg-config name (`libvala-0.56`,
+`libvala-0.58`, ...). The build selects the highest series enabled through a
+`v0_NN` feature on `vala-sys` (default `v0_56`); the series built against is
+exposed as `vala::API_VERSION`, and the exact runtime library version via
+`vala::build_version()`.
 
 ## License
 

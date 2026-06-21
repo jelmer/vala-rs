@@ -1,19 +1,29 @@
 use std::env;
 use std::path::PathBuf;
 
-const VALA_PKG: &str = "libvala-0.56";
-
 fn main() {
-    let lib = pkg_config::Config::new()
-        .probe(VALA_PKG)
-        .unwrap_or_else(|e| panic!("failed to find {VALA_PKG} via pkg-config: {e}"));
+    // system-deps resolves the versioned libvala package (libvala-0.56, ...) and
+    // emits the cargo:rustc-link-* directives. The series picked depends on the
+    // highest enabled v0_NN feature; see Cargo.toml.
+    let deps = system_deps::Config::new()
+        .probe()
+        .expect("failed to probe libvala via system-deps");
+    let lib = deps
+        .get_by_name("libvala")
+        .expect("system-deps did not return the libvala library");
 
-    // pkg-config already emits the cargo:rustc-link-* directives.
+    // `lib.version` is the full modversion (e.g. 0.56.19); the API series is its
+    // major.minor (0.56). Propagate both to dependent crates (the `vala` wrapper)
+    // via DEP_VALA_* env vars, courtesy of the `links` key.
+    let api_version = api_series(&lib.version);
+    println!("cargo:api_version={api_version}");
+    println!("cargo:full_version={}", lib.version);
 
-    let mut clang_args = Vec::new();
-    for path in &lib.include_paths {
-        clang_args.push(format!("-I{}", path.display()));
-    }
+    let clang_args: Vec<String> = lib
+        .include_paths
+        .iter()
+        .map(|path| format!("-I{}", path.display()))
+        .collect();
 
     let header = lib
         .include_paths
@@ -98,4 +108,13 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("failed to write bindings.rs");
+}
+
+/// Reduce a full version (`0.56.19`) to its API series (`0.56`).
+fn api_series(version: &str) -> String {
+    let mut parts = version.split('.');
+    match (parts.next(), parts.next()) {
+        (Some(major), Some(minor)) => format!("{major}.{minor}"),
+        _ => version.to_string(),
+    }
 }

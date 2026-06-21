@@ -11,7 +11,7 @@ rust-version.workspace = true
 readme = "README.md"
 keywords = ["vala", "ffi", "bindings", "compiler", "gnome"]
 categories = ["external-ffi-bindings", "development-tools"]
-links = "vala-0.56"
+links = "vala"
 build = "build.rs"
 
 [dependencies]
@@ -20,4 +20,20 @@ gobject-sys.workspace = true
 
 [build-dependencies]
 bindgen = "0.72"
-pkg-config = "0.3"
+system-deps = "7.0"
+
+# libvala bakes its API series into the pkg-config name (libvala-0.56), with no
+# unversioned libvala.pc. system-deps resolves the highest series enabled via a
+# v0_NN feature; add a new feature + version override here to support a new
+# series.
+[package.metadata.system-deps.libvala]
+fallback-names = ["libvala-0.56"]
+v0_56 = { version = "0.56", fallback-names = ["libvala-0.56"] }
+v0_58 = { version = "0.58", fallback-names = ["libvala-0.58"] }
+v0_60 = { version = "0.60", fallback-names = ["libvala-0.60"] }
+
+[features]
+default = ["v0_56"]
+v0_56 = []
+v0_58 = ["v0_56"]
+v0_60 = ["v0_58"]

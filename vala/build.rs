@@ -9,13 +9,19 @@ mod codegen;
 #[path = "build/vapi.rs"]
 mod vapi;
 
-const VAPI_CANDIDATES: &[&str] = &[
-    "/usr/share/vala-0.56/vapi/libvala-0.56.vapi",
-    "/usr/share/vala/vapi/libvala-0.56.vapi",
-];
-
 fn main() {
-    let vapi_path = locate_vapi();
+    // vala-sys probes libvala and exports its API series (e.g. 0.56) via its
+    // `links` metadata. The versioned pkg-config package is libvala-<series>.
+    let api_version =
+        env::var("DEP_VALA_API_VERSION").expect("DEP_VALA_API_VERSION not set by vala-sys");
+    let pkg = format!("libvala-{api_version}");
+
+    // Re-export for the crate's own compilation (DEP_* vars only reach build
+    // scripts, not rustc), so lib.rs can read it via env!.
+    println!("cargo:rustc-env=VALA_API_VERSION={api_version}");
+
+    let vapi_path = locate_vapi(&pkg);
+    println!("cargo:rerun-if-env-changed=VALA_VAPI");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build/vapi.rs");
     println!("cargo:rerun-if-changed=build/codegen.rs");
@@ -32,32 +38,56 @@ fn main() {
     fs::write(out_dir.join("generated.rs"), generated).expect("failed to write generated.rs");
 }
 
-fn locate_vapi() -> PathBuf {
+/// Locate the `<pkg>.vapi` for the probed libvala series.
+///
+/// `VALA_VAPI` overrides discovery. Otherwise we look in the package's
+/// pkg-config `vapidir` and its conventional siblings: on some distributions the
+/// vapi lives in the unversioned `vala/vapi` rather than the versioned
+/// `vala-<series>/vapi` that vapidir reports.
+fn locate_vapi(pkg: &str) -> PathBuf {
     if let Ok(p) = env::var("VALA_VAPI") {
         return PathBuf::from(p);
     }
-    // Prefer the vapidir reported by pkg-config so we track the installed series.
-    if let Ok(out) = std::process::Command::new("pkg-config")
-        .args(["--variable=vapidir", "libvala-0.56"])
+
+    let vapi_name = format!("{pkg}.vapi");
+    let dirs = vapi_dirs(pkg);
+    for dir in &dirs {
+        let candidate = dir.join(&vapi_name);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+
+    panic!("could not locate {vapi_name}; set VALA_VAPI to its path (looked in {dirs:?})");
+}
+
+/// Candidate directories that may hold the libvala vapi, derived from the
+/// package's pkg-config `vapidir`.
+fn vapi_dirs(pkg: &str) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(vapidir) = pkg_config_vapidir(pkg) {
+        // The unversioned sibling: .../vala-<series>/vapi -> .../vala/vapi.
+        if let Some(parent) = vapidir.parent().and_then(|p| p.parent()) {
+            dirs.push(parent.join("vala").join("vapi"));
+        }
+        dirs.push(vapidir);
+    }
+    dirs
+}
+
+/// The `vapidir` pkg-config variable for a package, if pkg-config reports one.
+fn pkg_config_vapidir(pkg: &str) -> Option<PathBuf> {
+    let out = std::process::Command::new("pkg-config")
+        .args(["--variable=vapidir", pkg])
         .output()
-    {
-        if out.status.success() {
-            let dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !dir.is_empty() {
-                let candidate = PathBuf::from(dir).join("libvala-0.56.vapi");
-                if candidate.exists() {
-                    return candidate;
-                }
-            }
-        }
+        .ok()?;
+    if !out.status.success() {
+        return None;
     }
-    for c in VAPI_CANDIDATES {
-        let p = PathBuf::from(c);
-        if p.exists() {
-            return p;
-        }
+    let dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if dir.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(dir))
     }
-    panic!(
-        "could not locate libvala-0.56.vapi; set VALA_VAPI to its path. tried pkg-config vapidir and {VAPI_CANDIDATES:?}"
-    );
 }
