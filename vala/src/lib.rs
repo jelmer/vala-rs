@@ -42,6 +42,7 @@ pub use collections::{List, ListIter};
 pub use context::{Profile, SourceFileType};
 pub use report::ReportLevel;
 pub use source::SourceLocation;
+pub use symbol::Accessibility;
 pub use visitor::{walk, walk_source_file, Visitor, Walker};
 
 /// The libvala API version this crate was built against (e.g. `"0.56"`).
