@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["vala-sys", "vala"]
+
+[workspace.package]
+edition = "2021"
+license = "LGPL-2.1-or-later"
+repository = "https://github.com/jelmer/vala-rs"
+authors = ["Jelmer Vernooĳ <jelmer@jelmer.uk>"]
+rust-version = "1.74"
+
+[workspace.dependencies]
+glib = "0.20"
+glib-sys = "0.20"
+gobject-sys = "0.20"

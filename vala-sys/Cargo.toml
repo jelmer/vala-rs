@@ -1,0 +1,20 @@
+[package]
+name = "vala-sys"
+version = "0.1.0"
+description = "FFI bindings to libvala, the Vala compiler library"
+documentation = "https://docs.rs/vala-sys"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+links = "vala-0.56"
+build = "build.rs"
+
+[dependencies]
+glib-sys.workspace = true
+gobject-sys.workspace = true
+
+[build-dependencies]
+bindgen = "0.72"
+pkg-config = "0.3"

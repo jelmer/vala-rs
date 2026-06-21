@@ -1,0 +1,17 @@
+[package]
+name = "vala"
+version = "0.1.0"
+description = "Safe Rust bindings to libvala, the Vala compiler library"
+documentation = "https://docs.rs/vala"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+vala-sys = { path = "../vala-sys", version = "0.1.0" }
+glib.workspace = true
+glib-sys.workspace = true
+gobject-sys.workspace = true
