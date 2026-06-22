@@ -50,7 +50,7 @@ pub struct SourceLocation {
 }
 
 impl SourceLocation {
-    unsafe fn from_ffi(raw: ffi::ValaSourceLocation) -> Self {
+    pub(crate) unsafe fn from_ffi(raw: ffi::ValaSourceLocation) -> Self {
         SourceLocation {
             line: raw.line,
             column: raw.column,

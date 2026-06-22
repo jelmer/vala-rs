@@ -35,12 +35,14 @@ mod context;
 mod node;
 mod parser;
 mod report;
+mod scanner;
 mod source;
 mod symbol;
 
 pub use collections::{List, ListIter};
 pub use context::{Profile, SourceFileType};
 pub use report::ReportLevel;
+pub use scanner::{Token, TokenType, Tokens};
 pub use source::SourceLocation;
 pub use symbol::Accessibility;
 pub use visitor::{walk, walk_source_file, Visitor, Walker};
