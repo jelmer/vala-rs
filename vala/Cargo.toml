@@ -1,6 +1,6 @@
 [package]
 name = "vala"
-version = "0.2.0"
+version = "0.2.1"
 description = "Safe Rust bindings to libvala, the Vala compiler library"
 documentation = "https://docs.rs/vala"
 edition.workspace = true
