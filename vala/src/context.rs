@@ -1,11 +1,19 @@
 //! Curated methods on [`CodeContext`], the entry point for driving the compiler.
 
+use std::cell::Cell;
 use std::ffi::CString;
+use std::sync::{Mutex, MutexGuard};
 
 use vala_sys as ffi;
 
 use crate::object::RawWrapper;
 use crate::{CodeContext, Report, SourceFile};
+
+/// libvala keeps the current [`CodeContext`] on a process-global stack and does
+/// not synchronise it, so concurrent compilations corrupt each other: errors get
+/// attributed to the wrong file, or the compiler segfaults. Holding this is what
+/// grants the right to push.
+static CONTEXT_STACK: Mutex<()> = Mutex::new(());
 
 /// The kind of a source file added to a [`CodeContext`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,29 +67,33 @@ impl CodeContext {
         }
     }
 
-    /// Push this context onto libvala's global context stack. Many libvala
-    /// operations read the current context; wrap work in [`push`]/[`pop`] or use
-    /// [`with_current`](CodeContext::with_current).
+    /// Run `f` with this context current, popping it afterwards even if `f`
+    /// panics.
     ///
-    /// [`push`]: CodeContext::push
-    /// [`pop`]: CodeContext::pop
-    pub fn push(&self) {
-        unsafe { ffi::vala_code_context_push(self.as_raw()) }
-    }
-
-    /// Pop the top context off libvala's global stack.
-    pub fn pop() {
-        unsafe { ffi::vala_code_context_pop() }
-    }
-
-    /// Run `f` with this context pushed as the current global context, popping it
-    /// afterwards even on panic.
+    /// Blocks until no other thread is inside `with_current`, and holds that
+    /// exclusion for the whole of `f`: compilations are serialised, not
+    /// parallel. Keep `f` to the work that needs the context current.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called re-entrantly on this thread. Nesting a different context
+    /// leaves it ambiguous which is current, and nesting the same one is
+    /// redundant, so both fail loudly rather than block forever.
     pub fn with_current<R>(&self, f: impl FnOnce(&Self) -> R) -> R {
-        self.push();
-        let guard = PopGuard;
-        let r = f(self);
-        drop(guard);
-        r
+        // Before locking: this thread holds the lock already, so blocking on it
+        // would deadlock instead of reaching the panic.
+        assert!(
+            !IS_CURRENT.get(),
+            "CodeContext::with_current is not re-entrant: this thread already \
+             holds libvala's context, and taking it again would deadlock"
+        );
+        // Recover from poisoning: Current::drop pops on unwind, so a panicking
+        // compilation leaves nothing broken for the next one.
+        let guard = CONTEXT_STACK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _current = Current::push(self, guard);
+        f(self)
     }
 
     /// Add a source file by name. `is_source` marks it as compilable Vala (as
@@ -177,10 +189,31 @@ impl Default for CodeContext {
     }
 }
 
-struct PopGuard;
+thread_local! {
+    /// Set while this thread is inside [`CodeContext::with_current`]. A `Mutex`
+    /// will not say whether the caller already holds it, so track it separately.
+    static IS_CURRENT: Cell<bool> = const { Cell::new(false) };
+}
 
-impl Drop for PopGuard {
+/// A pushed context, owning the lock that permitted the push. Dropping it pops
+/// and then unlocks, so a panicking compilation still leaves the stack balanced
+/// for the next thread.
+struct Current<'a> {
+    _lock: MutexGuard<'a, ()>,
+}
+
+impl<'a> Current<'a> {
+    fn push(ctx: &CodeContext, lock: MutexGuard<'a, ()>) -> Self {
+        // Neither of these can unwind, so the guard always exists to undo them.
+        IS_CURRENT.set(true);
+        unsafe { ffi::vala_code_context_push(ctx.as_raw()) };
+        Current { _lock: lock }
+    }
+}
+
+impl Drop for Current<'_> {
     fn drop(&mut self) {
-        CodeContext::pop();
+        unsafe { ffi::vala_code_context_pop() };
+        IS_CURRENT.set(false);
     }
 }
