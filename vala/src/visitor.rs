@@ -19,8 +19,8 @@ use vala_sys as ffi;
 
 use crate::object::RawWrapper;
 use crate::{
-    Class, CodeNode, Constant, Delegate, Enum, Field, Interface, MemberAccess, Method, MethodCall,
-    Namespace, Property, Signal, Struct,
+    Class, CodeNode, Constant, Delegate, Enum, EnumValue, ErrorCode, ErrorDomain, Field, Interface,
+    MemberAccess, Method, MethodCall, Namespace, Property, Signal, Struct,
 };
 
 /// Handle to the running traversal, used to recurse into a node's children.
@@ -65,6 +65,21 @@ pub trait Visitor {
     }
     /// An enum declaration.
     fn visit_enum(&mut self, w: &Walker, node: &Enum) {
+        w.walk_children(node);
+    }
+    /// A value within an enum declaration. libvala models an enum value as a
+    /// [`Constant`], but dispatches it through its own slot, so it does not
+    /// reach [`Visitor::visit_constant`].
+    fn visit_enum_value(&mut self, w: &Walker, node: &EnumValue) {
+        w.walk_children(node);
+    }
+    /// An errordomain declaration.
+    fn visit_error_domain(&mut self, w: &Walker, node: &ErrorDomain) {
+        w.walk_children(node);
+    }
+    /// A code within an errordomain declaration. As with [`Visitor::visit_enum_value`],
+    /// this has its own slot and does not reach [`Visitor::visit_constant`].
+    fn visit_error_code(&mut self, w: &Walker, node: &ErrorCode) {
         w.walk_children(node);
     }
     /// A method declaration.
@@ -203,6 +218,24 @@ trampoline!(tr_class, ffi::ValaClass, Class, visit_class);
 trampoline!(tr_struct, ffi::ValaStruct, Struct, visit_struct);
 trampoline!(tr_interface, ffi::ValaInterface, Interface, visit_interface);
 trampoline!(tr_enum, ffi::ValaEnum, Enum, visit_enum);
+trampoline!(
+    tr_enum_value,
+    ffi::ValaEnumValue,
+    EnumValue,
+    visit_enum_value
+);
+trampoline!(
+    tr_error_domain,
+    ffi::ValaErrorDomain,
+    ErrorDomain,
+    visit_error_domain
+);
+trampoline!(
+    tr_error_code,
+    ffi::ValaErrorCode,
+    ErrorCode,
+    visit_error_code
+);
 trampoline!(tr_method, ffi::ValaMethod, Method, visit_method);
 trampoline!(tr_field, ffi::ValaField, Field, visit_field);
 trampoline!(tr_property, ffi::ValaProperty, Property, visit_property);
@@ -259,6 +292,9 @@ unsafe extern "C" fn class_init(klass: *mut c_void, _data: *mut c_void) {
     (*vtable).visit_struct = Some(tr_struct);
     (*vtable).visit_interface = Some(tr_interface);
     (*vtable).visit_enum = Some(tr_enum);
+    (*vtable).visit_enum_value = Some(tr_enum_value);
+    (*vtable).visit_error_domain = Some(tr_error_domain);
+    (*vtable).visit_error_code = Some(tr_error_code);
     (*vtable).visit_method = Some(tr_method);
     (*vtable).visit_field = Some(tr_field);
     (*vtable).visit_property = Some(tr_property);
